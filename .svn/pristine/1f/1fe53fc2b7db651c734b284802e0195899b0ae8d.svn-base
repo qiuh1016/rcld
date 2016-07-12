@@ -1,0 +1,26 @@
+//: Playground - noun: a place where people can play
+
+import UIKit
+
+var str = "Hello, playground"
+
+var strUInt : UInt16 = 0xD3
+let str1: String = UnicodeScalar(strUInt).escape(asASCII: false)
+
+let enc = CFStringConvertEncodingToNSStringEncoding(UInt32(CFStringEncodings.GB_18030_2000.rawValue))
+
+let str2 = "渔船"
+let yuData = str1.dataUsingEncoding(NSUTF8StringEncoding, allowLossyConversion: false)
+
+var bytes:[UInt32] = [0xc393]
+
+var s = NSString(data: yuData!, encoding: enc)
+
+let data = NSData(bytes: bytes, length: bytes.count)
+
+s = NSString(bytes: bytes, length: bytes.count, encoding: enc)
+
+s = NSString(data: data, encoding: enc)
+
+let gbk_encoding = CFStringConvertEncodingToNSStringEncoding(CFStringEncoding(CFStringEncodings.GB_18030_2000.rawValue))
+

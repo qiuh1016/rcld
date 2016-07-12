@@ -1,0 +1,19 @@
+//
+//  HTTPURL.swift
+//  renchuanliandong
+//
+//  Created by qiuhong on 3/28/16.
+//  Copyright © 2016 qiuhhong. All rights reserved.
+//
+
+import Foundation
+
+let httpBodyURL           = "http://120.27.149.252"
+
+let httpLoginURL          = "/api/app/login.json"
+let httpChangePSWURL      = "/api/app/password/change.json"
+let httpGetShipInfoURL    = "/api/app/ship/get.json"
+let httpGetFenceInfoURL   = "/api/app/fence/all.json"
+let httpGetTrailURL       = "/api/app/trail/get.json"
+let httpUpdataShipInfoURL = "/api/app/ship/update.json"
+let httpUploadImageURL    = "/api/app/image/upload.json"

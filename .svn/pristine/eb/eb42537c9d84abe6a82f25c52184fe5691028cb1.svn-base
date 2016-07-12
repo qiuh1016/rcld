@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="9531" systemVersion="15A282a" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" initialViewController="5v7-Dt-rwb">
+    <dependencies>
+        <deployment identifier="iOS"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="9529"/>
+        <capability name="Constraints to layout margins" minToolsVersion="6.0"/>
+    </dependencies>
+    <scenes>
+        <!--Walkthrough Page View Controller-->
+        <scene sceneID="uAm-h9-3gb">
+            <objects>
+                <pageViewController storyboardIdentifier="Walkthrough" autoresizesArchivedViewToFullSize="NO" transitionStyle="pageCurl" navigationOrientation="horizontal" spineLocation="none" id="5v7-Dt-rwb" customClass="WalkthroughPageViewController" customModule="renchuanliandong" customModuleProvider="target" sceneMemberID="viewController">
+                    <simulatedScreenMetrics key="simulatedDestinationMetrics" type="retina47"/>
+                </pageViewController>
+                <placeholder placeholderIdentifier="IBFirstResponder" id="4rv-Yl-4f7" userLabel="First Responder" sceneMemberID="firstResponder"/>
+            </objects>
+            <point key="canvasLocation" x="1752.5" y="-502.5"/>
+        </scene>
+        <!--Walkthrough Content View Controller-->
+        <scene sceneID="P6r-Zx-RzP">
+            <objects>
+                <viewController storyboardIdentifier="WalkthroughContentController" id="hVn-ev-ebH" customClass="WalkthroughContentViewController" customModule="renchuanliandong" customModuleProvider="target" sceneMemberID="viewController">
+                    <layoutGuides>
+                        <viewControllerLayoutGuide type="top" id="THV-19-dXb"/>
+                        <viewControllerLayoutGuide type="bottom" id="9fh-EK-qig"/>
+                    </layoutGuides>
+                    <view key="view" contentMode="scaleToFill" id="yVL-CL-Nzo">
+                        <rect key="frame" x="0.0" y="0.0" width="375" height="667"/>
+                        <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                        <subviews>
+                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="本船信息界面" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="DQt-TY-0g9">
+                                <rect key="frame" x="127" y="48" width="120" height="24"/>
+                                <fontDescription key="fontDescription" type="system" pointSize="20"/>
+                                <color key="textColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
+                                <nil key="highlightedColor"/>
+                            </label>
+                            <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="roundedRect" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="qdZ-kE-h5S">
+                                <rect key="frame" x="329" y="629" width="30" height="30"/>
+                                <fontDescription key="fontDescription" name="HelveticaNeue-Italic" family="Helvetica Neue" pointSize="15"/>
+                                <state key="normal" title="进入">
+                                    <color key="titleColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
+                                </state>
+                                <connections>
+                                    <action selector="nextButtonTapped" destination="hVn-ev-ebH" eventType="touchUpInside" id="MZJ-1N-c4L"/>
+                                </connections>
+                            </button>
+                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="显示本船只的详细信息，可控制开启或关闭防盗功能及开灯寻船功能，可查看船员信息及打卡信息" textAlignment="center" lineBreakMode="tailTruncation" numberOfLines="0" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="Erc-R8-TJe">
+                                <rect key="frame" x="16" y="566" width="343" height="36"/>
+                                <fontDescription key="fontDescription" type="system" pointSize="15"/>
+                                <color key="textColor" white="1" alpha="1" colorSpace="calibratedWhite"/>
+                                <nil key="highlightedColor"/>
+                            </label>
+                            <imageView userInteractionEnabled="NO" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" verticalCompressionResistancePriority="749" image="myshipView" translatesAutoresizingMaskIntoConstraints="NO" id="md9-6w-RY5">
+                                <rect key="frame" x="0.0" y="82" width="375" height="476"/>
+                            </imageView>
+                            <pageControl opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" numberOfPages="4" translatesAutoresizingMaskIntoConstraints="NO" id="ijI-W4-9TG">
+                                <rect key="frame" x="160" y="610" width="55" height="37"/>
+                                <constraints>
+                                    <constraint firstAttribute="height" constant="37" id="Uty-R8-tud"/>
+                                </constraints>
+                            </pageControl>
+                        </subviews>
+                        <color key="backgroundColor" red="0.52516664725007223" green="0.85363855768468655" blue="1" alpha="1" colorSpace="calibratedRGB"/>
+                        <constraints>
+                            <constraint firstAttribute="trailingMargin" secondItem="qdZ-kE-h5S" secondAttribute="trailing" id="8E7-Yq-1vf"/>
+                            <constraint firstItem="DQt-TY-0g9" firstAttribute="top" secondItem="THV-19-dXb" secondAttribute="bottom" constant="28" id="RSS-1y-dSD"/>
+                            <constraint firstItem="ijI-W4-9TG" firstAttribute="top" secondItem="Erc-R8-TJe" secondAttribute="bottom" constant="8" id="YyE-5R-w8n"/>
+                            <constraint firstItem="DQt-TY-0g9" firstAttribute="centerX" secondItem="yVL-CL-Nzo" secondAttribute="centerX" id="b0h-he-7I1"/>
+                            <constraint firstItem="9fh-EK-qig" firstAttribute="top" secondItem="ijI-W4-9TG" secondAttribute="bottom" constant="20" id="dCX-6A-1aw"/>
+                            <constraint firstAttribute="trailingMargin" secondItem="Erc-R8-TJe" secondAttribute="trailing" id="gZ3-we-nxI"/>
+                            <constraint firstItem="md9-6w-RY5" firstAttribute="top" secondItem="DQt-TY-0g9" secondAttribute="bottom" constant="10" id="kWH-fL-y5R"/>
+                            <constraint firstItem="9fh-EK-qig" firstAttribute="top" secondItem="qdZ-kE-h5S" secondAttribute="bottom" constant="8" id="nRH-4d-NH3"/>
+                            <constraint firstItem="ijI-W4-9TG" firstAttribute="centerX" secondItem="yVL-CL-Nzo" secondAttribute="centerX" id="oHG-nJ-PRz"/>
+                            <constraint firstItem="Erc-R8-TJe" firstAttribute="top" secondItem="md9-6w-RY5" secondAttribute="bottom" constant="8" id="qUg-sW-YQ0"/>
+                            <constraint firstItem="md9-6w-RY5" firstAttribute="leading" secondItem="yVL-CL-Nzo" secondAttribute="leading" id="vbC-3Q-wz9"/>
+                            <constraint firstItem="Erc-R8-TJe" firstAttribute="leading" secondItem="yVL-CL-Nzo" secondAttribute="leadingMargin" id="xs0-ky-N2g"/>
+                            <constraint firstAttribute="trailing" secondItem="md9-6w-RY5" secondAttribute="trailing" id="yzp-BX-SUP"/>
+                        </constraints>
+                    </view>
+                    <simulatedScreenMetrics key="simulatedDestinationMetrics" type="retina47"/>
+                    <connections>
+                        <outlet property="contentLabel" destination="Erc-R8-TJe" id="VoW-HE-KTK"/>
+                        <outlet property="headingLabel" destination="DQt-TY-0g9" id="Vjx-nA-Xmk"/>
+                        <outlet property="imageView" destination="md9-6w-RY5" id="uaW-XF-fZR"/>
+                        <outlet property="nextButton" destination="qdZ-kE-h5S" id="J3x-Fw-d4M"/>
+                        <outlet property="pageControl" destination="ijI-W4-9TG" id="Hfz-H4-iDR"/>
+                    </connections>
+                </viewController>
+                <placeholder placeholderIdentifier="IBFirstResponder" id="wsn-0K-U9M" userLabel="First Responder" sceneMemberID="firstResponder"/>
+            </objects>
+            <point key="canvasLocation" x="2221.5" y="-502.5"/>
+        </scene>
+    </scenes>
+    <resources>
+        <image name="myshipView" width="540" height="960"/>
+    </resources>
+</document>

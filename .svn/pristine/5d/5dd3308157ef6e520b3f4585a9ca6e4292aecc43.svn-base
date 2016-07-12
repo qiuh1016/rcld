@@ -1,0 +1,316 @@
+//
+//  showStaffViewController.swift
+//  huilvchaxun
+//
+//  Created by qiuhong on 11/27/15.
+//  Copyright © 2015 qiuhhong. All rights reserved.
+//
+
+import UIKit
+import Alamofire
+import SwiftyJSON
+import AudioToolbox
+import MJRefresh
+
+class showStaffViewController: UITableViewController, reasonViewControllerDelegate {
+    
+//    struct Punch {
+//        var sailorIdNo: String = ""
+//        var punchTime: String = ""
+//        var sailorName: String = ""
+//        var deviceNo: String = ""
+//        var iofFlag: Int = 1
+//        var dataType: Int = 0
+//        var reason: String?
+//    }
+    
+    var punchs = [Punch]()
+    var punchsAdded = [Punch]()
+    
+    var iofFlag = Int()  // 1 出海  2 回港
+    
+    @IBOutlet weak var viewTitle: UINavigationItem!
+    
+    @IBAction func okBarButtonTapped(sender: AnyObject) {
+        let okHandler = {(action: UIAlertAction!) -> Void in
+            alertView("提示", message: "已成功提交出海名单！", okActionTitle: "好的", okHandler: nil, viewController: self)
+        }
+        
+        alertView("确认提交名单？", message: "xxx:330283198812340134\nxxx:330283198812340134\nxxx:330283198812340134\nxxx:330283198812340134\nxxx:330283198812340134\nxxx:330283198812340134\nxxx:330283198812340134\n\n共7人", okActionTitle: "提交", cancleActionTitle: "取消", okHandler: okHandler, viewController: self)
+    }
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+
+        tableView.tableFooterView = UIView()
+        
+        if iofFlag == 1 {
+            viewTitle.title = "出海确认"
+        } else if iofFlag == 2 {
+            viewTitle.title = "回港确认"
+        }
+        
+        //MJ refresh
+        tableView.mj_header = MJRefreshNormalHeader(refreshingTarget: self, refreshingAction: #selector(showStaffViewController.refreshData))
+        tableView.mj_header.beginRefreshing()
+        
+        //loadData()
+    }
+    
+    func refreshData(){
+        
+        let userName = NSUserDefaults.standardUserDefaults().valueForKey("userName")
+        let password = NSUserDefaults.standardUserDefaults().valueForKey("password")
+        
+        let timeFormatter = NSDateFormatter()
+        timeFormatter.dateFormat = "YYYY/MM/dd HH:mm:ss"
+        let endTime = timeFormatter.stringFromDate(NSDate())
+        //let startTime = timeFormatter.stringFromDate(NSDate().dateByAddingTimeInterval(-5 * 60 * 60))
+        let startTime = "2016/01/01 00:00:00"
+
+        Alamofire.request(.GET, httpBodyURL + httpGetPunchURL, parameters: ["userName": userName!, "password": password!, "startTime": startTime, "endTime": endTime], encoding: .URLEncodedInURL).responseJSON{
+            response in
+            
+            switch response.result{
+            case .Success:
+                if let value = response.result.value{
+                    
+                    let json = JSON(value) as JSON
+                    
+                    if json["code"] == 0 {
+                        let data = json["data"]
+                        self.punchs.removeAll()
+                        for i in 0 ..< data.count {
+                            let punch = Punch()
+                            punch.sailorIdNo = data[i]["sailorIdNo"].stringValue
+                            punch.punchTime  = data[i]["punchTime"] .stringValue
+                            punch.sailorName = data[i]["sailorName"].stringValue
+                            punch.deviceNo   = data[i]["deviceNo"]  .stringValue
+                            punch.dataType   = 0
+                            punch.iofFlag    = self.iofFlag
+                            
+                            self.punchs.append(punch)
+                        }
+                        
+                        //重载tableView
+                        self.tableView.reloadData()
+                        
+                        //保存数据
+                        //self.saveData()
+                        
+                        //下拉刷新
+                        
+                    } else {
+                        let msg = json["msg"].stringValue
+                        alertView("提示", message: msg, okActionTitle: "好的", okHandler: nil, viewController: self)
+                    }
+                    
+                    self.tableView.mj_header.endRefreshing()
+                }
+                
+            case .Failure:
+                self.tableView.mj_header.endRefreshing()
+                alertView("提示", message: "通信故障，无法获取数据!", okActionTitle: "好的", okHandler: nil, viewController: self)
+            }
+        }
+    }
+    
+    override func didReceiveMemoryWarning() {
+        super.didReceiveMemoryWarning()
+    }
+    
+    
+    func strNowTime() -> String{
+        let date0 = NSDate()
+        let timeFormatter = NSDateFormatter()
+        timeFormatter.dateFormat = "YYYY-MM-dd HH:mm:ss"
+        let strNowTime = timeFormatter.stringFromDate(date0) as String
+        return strNowTime
+    }
+    
+    
+    // MARK: - reasonView delegate
+    func punchHasConfirmAdded(punchAdded: Punch, viewController: UIViewController) {
+        let count = self.navigationController?.viewControllers.count
+        self.navigationController?.popToViewController((self.navigationController?.viewControllers[count! - 2])!, animated: true)
+        punchAdded.iofFlag = self.iofFlag
+        punchsAdded.append(punchAdded)
+        tableView.reloadData()
+    }
+    
+    // MARK: - TableView DataSource
+    override func numberOfSectionsInTableView(tableView: UITableView) -> Int {
+        var numberOfSectionsInTableView = 0
+        if punchsAdded.count != 0 {
+            numberOfSectionsInTableView += 1
+        }
+        if punchs.count != 0 {
+            numberOfSectionsInTableView += 1
+        }
+        return numberOfSectionsInTableView
+    }
+    
+    override func tableView(tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        switch section {
+        case 0:
+            return punchs.count
+        case 1:
+            return punchsAdded.count
+        default:
+            break
+        }
+        
+        return 0
+    }
+    
+    override func tableView(tableView: UITableView, cellForRowAtIndexPath indexPath: NSIndexPath) -> UITableViewCell {
+        
+        let cell = tableView.dequeueReusableCellWithIdentifier("Cell1", forIndexPath: indexPath)
+        let staffNameLabel = cell.viewWithTag(1000) as! UILabel
+        let staffIDLabel = cell.viewWithTag(1001) as! UILabel
+        let dateTimeLabel = cell.viewWithTag(1002) as! UILabel
+        let imageView = cell.viewWithTag(1003) as! UIImageView
+        
+        switch indexPath.section {
+        case 0:
+            staffNameLabel.text = punchs[indexPath.row].sailorName
+            staffIDLabel.text = punchs[indexPath.row].sailorIdNo
+            dateTimeLabel.text = punchs[indexPath.row].punchTime
+            if maleOrFemale(punchs[indexPath.row].sailorIdNo) == "男"{
+                imageView.image = UIImage(named: "user62")
+            }else if maleOrFemale(punchs[indexPath.row].sailorIdNo) == "女"{
+                imageView.image = UIImage(named: "user63")
+            }else{
+                imageView.image = nil
+            }
+        case 1:
+            staffNameLabel.text = punchsAdded[indexPath.row].sailorName
+            staffIDLabel.text = punchsAdded[indexPath.row].sailorIdNo
+            dateTimeLabel.text = "手动添加"
+            if maleOrFemale(punchsAdded[indexPath.row].sailorIdNo) == "男"{
+                imageView.image = UIImage(named: "user62")
+            }else if maleOrFemale(punchsAdded[indexPath.row].sailorIdNo) == "女"{
+                imageView.image = UIImage(named: "user63")
+            }else{
+                imageView.image = nil
+            }
+        default:
+            break
+        }
+        return cell
+    }
+    
+    override func tableView(tableView: UITableView, heightForRowAtIndexPath indexPath: NSIndexPath) -> CGFloat {
+        return 60
+    }
+    
+    override func tableView(tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
+        switch section {
+        case 0:
+            return "自动生成"
+        case 1:
+            return "手动添加"
+        default:
+            break
+        }
+        return nil
+    }
+    
+    // MARK: - TableView Delegate
+    override func tableView(tableView: UITableView, didSelectRowAtIndexPath indexPath: NSIndexPath) {
+        tableView.deselectRowAtIndexPath(indexPath, animated: true)
+        switch indexPath.section {
+        case 0:
+            performSegueWithIdentifier("ShowDetail", sender: punchs[indexPath.row])
+        case 1:
+            performSegueWithIdentifier("ShowDetail", sender: punchsAdded[indexPath.row])
+        default:
+            break
+        }
+    }
+    
+    override func tableView(tableView: UITableView, commitEditingStyle editingStyle: UITableViewCellEditingStyle, forRowAtIndexPath indexPath: NSIndexPath) {
+        
+        switch indexPath.section {
+        case 0:
+            punchs.removeAtIndex(indexPath.row)
+            tableView.deleteRowsAtIndexPaths([indexPath], withRowAnimation: .Fade)
+            //TODO 删除原因
+        case 1:
+            punchsAdded.removeAtIndex(indexPath.row)
+            if punchsAdded.count == 0 {
+                tableView.deleteSections(NSIndexSet.init(index: 1), withRowAnimation: .Fade)
+                
+            } else {
+                tableView.deleteRowsAtIndexPaths([indexPath], withRowAnimation: .Fade)
+            }
+        default:
+            break
+        }
+        
+    }
+    
+
+    
+    // MARK: - Navigation
+    override func prepareForSegue(segue: UIStoryboardSegue, sender: AnyObject?) {
+        if segue.identifier == "ShowDetail"{
+            let detailViewController = segue.destinationViewController as! DetailViewController
+            detailViewController.punch = sender as! Punch
+//            var staffName = punch.sailorName
+//            staffName = staffName.stringByReplacingOccurrencesOfString(" ", withString: "")
+//            detailViewController.staffName = staffName
+//            
+//            let genderString = (punch.sailorIdNo as NSString).substringWithRange(NSMakeRange(16, 1))
+//            let genderNumber = Int(genderString)
+//            if let genderNumber = genderNumber {
+//                if genderNumber % 2 == 0{
+//                    detailViewController.gender = "女"
+//                }else{
+//                    detailViewController.gender = "男"
+//                }
+//            }else{
+//                detailViewController.gender = "未知"
+//            }
+//            
+//            let id = punch.sailorIdNo
+//            if id.characters.count == 18{
+//                detailViewController.birthday = id[6 ..< 10] + "/" + id[10 ..< 12] + "/" + id[12 ..< 14]
+//            }else{
+//                detailViewController.birthday = "0000/00/00"
+//            }
+//            
+//            if punch.punchTime != "" {
+//                detailViewController.checkInDate = punch.punchTime
+//            } else {
+//                detailViewController.checkInDate = "手动添加"
+//            }
+            
+            
+        } else if segue.identifier == "addPunchSegue" {
+            let vc = segue.destinationViewController as! reasonViewController
+            vc.delegate = self
+            vc.punchs = punchs
+            vc.punchs.appendContentsOf(punchsAdded)
+        }
+    }
+    
+    func maleOrFemale(staffID: String) -> String{
+        if staffID.characters.count == 18{
+            let genderString = (staffID as NSString).substringWithRange(NSMakeRange(16, 1))
+            let genderNumber = Int(genderString)
+            if let genderNumber = genderNumber {
+                if genderNumber % 2 == 0{
+                    return "女"
+                }else{
+                    return "男"
+                }
+            }else{
+                return "未知"
+            }
+        }else{
+            return "未知"
+        }
+    }
+    
+}

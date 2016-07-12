@@ -1,0 +1,82 @@
+//
+//  DetailViewController.swift
+//  renchuanliandong
+//
+//  Created by qiuh1016 on 12/14/15.
+//  Copyright © 2015 qiuhhong. All rights reserved.
+//
+
+import UIKit
+
+class DetailViewController: UIViewController {
+
+    @IBOutlet weak var popupView: UIView!
+    @IBOutlet weak var userPicImageView: UIImageView!
+    @IBOutlet weak var nameLabel: UILabel!
+    @IBOutlet weak var genderLabel: UILabel!
+    @IBOutlet weak var birthdayLabel: UILabel!
+    @IBOutlet weak var checkInDateLabel: UILabel!
+    
+    var staffName: String!
+    var gender: String!
+    var birthday: String!
+    var checkInDate: String!
+    
+    @IBAction func close() {
+        dismissViewControllerAnimated(true, completion: nil)
+    }
+    
+    required init?(coder aDecoder: NSCoder) {
+        super.init(coder: aDecoder)
+        modalPresentationStyle = .Custom
+        transitioningDelegate = self
+    }
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        
+        view.backgroundColor = UIColor.clearColor()
+        popupView.layer.cornerRadius = 15
+
+        let gestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(DetailViewController.close))
+        gestureRecognizer.cancelsTouchesInView = false
+        gestureRecognizer.delegate = self
+        view.addGestureRecognizer(gestureRecognizer)
+        
+        updateUI()
+    }
+    
+    func updateUI(){
+        nameLabel.text = staffName
+        genderLabel.text = gender
+        birthdayLabel.text = birthday
+        checkInDateLabel.text = checkInDate
+        
+        if gender == "男" || gender == "未知"{
+            userPicImageView.image = UIImage(named: "user62")
+        }else{
+            userPicImageView.image = UIImage(named: "user63")
+        }
+    }
+    
+}
+
+extension DetailViewController: UIViewControllerTransitioningDelegate{
+    func presentationControllerForPresentedViewController(presented: UIViewController, presentingViewController presenting: UIViewController, sourceViewController source: UIViewController) -> UIPresentationController? {
+        return DimmingPresentationController(presentedViewController: presented, presentingViewController: presenting)
+    }
+    
+    func animationControllerForPresentedController(presented: UIViewController, presentingController presenting: UIViewController, sourceController source: UIViewController) -> UIViewControllerAnimatedTransitioning? {
+        return BounceAnimationController()
+    }
+    
+    func animationControllerForDismissedController(dismissed: UIViewController) -> UIViewControllerAnimatedTransitioning? {
+        return SlideOutAnimationController()
+    }
+}
+
+extension DetailViewController:UIGestureRecognizerDelegate{
+    func gestureRecognizer(gestureRecognizer: UIGestureRecognizer, shouldReceiveTouch touch: UITouch) -> Bool {
+        return (touch.view === self.view)
+    }
+}

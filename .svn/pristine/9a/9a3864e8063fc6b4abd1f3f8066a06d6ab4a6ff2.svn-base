@@ -1,0 +1,368 @@
+//
+//  showStaffViewController.swift
+//  huilvchaxun
+//
+//  Created by qiuhong on 11/27/15.
+//  Copyright © 2015 qiuhhong. All rights reserved.
+//
+
+import UIKit
+import Alamofire
+import SwiftyJSON
+import AudioToolbox
+import MJRefresh
+
+class showStaffHistoryViewController: UITableViewController {
+
+    
+    let httpBody = "http://121.40.212.195:8080/PJWorkNum/staff/getStaffHistory.do?u=admin&p=xMpCOKC5I4INzFCab3WEmw=="
+
+    var deviceNo: String? = {
+        if let number = NSUserDefaults.standardUserDefaults().objectForKey("deviceNo"){
+            return number as? String
+        }else{
+            return nil
+        }
+    }()
+    
+    var savedDeviceNo: String?
+    var totalPage = 0
+    var currentPage = 0
+    var staffIds = [""]
+    var staffNames = [""]
+    var dateTimes = [""]
+    
+    var needRefresh: Bool = {
+        let bool = NSUserDefaults.standardUserDefaults().boolForKey("refreshStaffHistory")
+        print("needRefresh: \(bool)")
+        return bool
+    }()
+
+    var refreshTimer5s: NSTimer?
+    var refreshTimer1s: NSTimer?
+    var second = 5
+    var rightNavigationItemTitle = "....."
+    var isFirstTime = true
+    
+    var staffCount:Int = 0{
+        willSet(newCount){
+            if isFirstTime{
+                isFirstTime = false
+                print("staffcount changed firt time \(staffCount) -> \(newCount)")
+            }else{
+                if newCount > staffCount{
+                    refreshData()
+                    playSystemSound()
+                    print("staffcount changed \(staffCount) -> \(newCount)")
+                    alertView("提示", message: "设备读取到新的打卡信息\(newCount - staffCount)条!", okActionTitle: "好的", okHandler: nil, viewController: self)
+                }
+            }
+        }
+    }
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        
+        loadData()
+        
+        //MJ refresh
+        tableView.mj_header = MJRefreshNormalHeader(refreshingBlock: {
+            self.currentPage = 0
+            self.refreshData()
+        })
+        tableView.mj_header.beginRefreshing()
+        
+        //tableView.mj_footer = MJRefreshAutoFooter(refreshingTarget: self, refreshingAction: "refreshData")
+        tableView.mj_footer = MJRefreshBackNormalFooter(refreshingTarget: self, refreshingAction: #selector(showStaffHistoryViewController.refreshData))
+        
+        //定期获取数据
+        if needRefresh{
+            refreshTimer5s = NSTimer.scheduledTimerWithTimeInterval(5, target: self, selector: #selector(showStaffHistoryViewController.refreshDataWithTimer(_:)), userInfo: nil, repeats: true)
+            refreshTimer1s = NSTimer.scheduledTimerWithTimeInterval(1, target: self, selector: #selector(showStaffHistoryViewController.changeNavigationItemTitle(_:)), userInfo: nil, repeats: true)
+            let rightNavgationItem = UIBarButtonItem.init(title: rightNavigationItemTitle, style: .Plain, target: self, action: nil)
+            self.navigationItem.rightBarButtonItem = rightNavgationItem
+        }
+        getStaffCount()
+    }
+    
+    override func viewDidDisappear(animated: Bool) {
+        super.viewDidDisappear(animated)
+        if let timer = refreshTimer5s{
+            timer.invalidate()
+        }
+        if let timer = refreshTimer1s{
+            timer.invalidate()
+        }
+    }
+    
+    func refreshDataWithTimer(timer: NSTimer){
+        if needRefresh{
+            getStaffCount()
+        }else{
+            timer.invalidate()
+        }
+    }
+    
+    func changeNavigationItemTitle(timer: NSTimer){
+        if needRefresh{
+            if second < 4{
+                rightNavigationItemTitle += "."
+                second += 1
+            }else{
+                rightNavigationItemTitle = "."
+                second = 0
+            }
+            self.navigationItem.rightBarButtonItem?.title = rightNavigationItemTitle
+            
+        }else{
+            timer.invalidate()
+        }
+    }
+    
+    func refreshData(){
+
+        if currentPage > totalPage{
+            tableView.mj_footer.endRefreshingWithNoMoreData()
+            return
+        }
+        
+        Alamofire.request(.GET, httpBody, parameters: ["currentPage": currentPage , "countOfpage":10, "deviceNo": "\(deviceNo!)"]).validate().responseData{
+            response in
+            
+            switch response.result{
+            case .Success:
+                if let value = response.result.value{
+                    let str = NSString(data: value, encoding: NSUTF8StringEncoding)
+                    let valueShuangyinhao = str!.stringByReplacingOccurrencesOfString("'", withString: "\"") as NSString
+                    let nsDatajson = valueShuangyinhao.dataUsingEncoding(NSUTF8StringEncoding)
+                    
+                    let json = JSON(data: nsDatajson!)
+                    let num = json["data"].count
+                    self.totalPage = json["totalPage"].numberValue as Int
+                    
+                    if self.currentPage == 0{
+                        self.staffIds.removeAll()
+                        self.staffNames.removeAll()
+                        self.dateTimes.removeAll()
+                    }
+                    
+                    var i = 0
+                    while i < num{
+                        let staffId = json["data"][i]["staffId"].stringValue
+                        let staffName = json["data"][i]["staffName"].stringValue
+                        let dateTime = json["data"][i]["dateTime"].stringValue
+                        i += 1
+                        self.staffIds.append(staffId)
+                        self.staffNames.append(staffName)
+                        self.dateTimes.append(dateTime)
+                    }
+                    
+                    //重载tableView
+                    self.tableView.reloadData()
+                    
+                    //保存数据
+                    self.saveData()
+                    
+                    //下拉刷新
+                    self.tableView.mj_header.endRefreshing()
+                    self.tableView.mj_footer.endRefreshing()
+                    
+                    self.currentPage += 1
+                    
+                }
+                
+            case .Failure:
+                self.tableView.mj_header.endRefreshing()
+                self.tableView.mj_footer.endRefreshing()
+                alertView("提示", message: "通信故障，无法获取数据!", okActionTitle: "好的", okHandler: nil, viewController: self)
+            }
+        }
+    }
+    
+    func saveData(){
+        let defaults = NSUserDefaults.standardUserDefaults()
+        defaults.setObject(self.staffIds, forKey: "staffIds")
+        defaults.setObject(self.staffNames, forKey: "staffNames")
+        defaults.setObject(self.dateTimes, forKey: "dateTimes")
+        defaults.setObject(self.deviceNo, forKey: "deviceNoForStaff")
+    }
+    
+    func loadData(){
+        let defaults = NSUserDefaults.standardUserDefaults()
+        if let defaultsDeviceNo = defaults.objectForKey("deviceNoForStaff"){
+            savedDeviceNo = defaultsDeviceNo as? String
+
+            //判断存的船员 是否是目前终端的
+            if let deviceNo = deviceNo{
+                if savedDeviceNo != deviceNo{
+                    staffIds = [""]
+                    staffNames = [""]
+                    dateTimes = [""]
+                }else{
+                    if let names = defaults.objectForKey("staffNames"){
+                        staffNames = names as! [String]
+                    }
+                    if let IDs = defaults.objectForKey("staffIds"){
+                        staffIds = IDs as! [String]
+                    }
+                    if let times = defaults.objectForKey("dateTimes"){
+                        dateTimes = times as! [String]
+                    }
+                    
+                    //不确定读取的数据是否会出错，做个判断
+                    let count = staffNames.count
+                    if staffIds.count != count || dateTimes.count != count{
+                        staffIds = [""]
+                        staffNames = [""]
+                        dateTimes = [""]
+                    }
+                }
+            }
+        }
+    }
+    
+    func getStaffCount(){
+        let httpStaffCount = "http://121.40.212.195:8080/PJWorkNum/staff/getStaffCountbyDeviceNo.do?u=admin&p=xMpCOKC5I4INzFCab3WEmw==&deviceNo=" + deviceNo!
+        
+        Alamofire.request(.GET, httpStaffCount).validate().responseData{
+            response in
+            
+            switch response.result{
+            case .Success:
+                if let value = response.result.value{
+                    let str = NSString(data: value, encoding: NSUTF8StringEncoding)
+                    let valueShuangyinhao = str!.stringByReplacingOccurrencesOfString("'", withString: "\"") as NSString
+                    let nsDatajson = valueShuangyinhao.dataUsingEncoding(NSUTF8StringEncoding)
+                    let json = JSON(data: nsDatajson!)
+                    self.staffCount = json["staffCount"].numberValue as Int
+                    }
+            case .Failure:
+                alertView("提示", message: "通信故障，无法获取数据!", okActionTitle: "好的", okHandler: nil, viewController: self)
+                self.refreshTimer5s?.invalidate()
+                self.refreshTimer1s?.invalidate()
+            }
+
+        }
+        
+    }
+    
+    override func didReceiveMemoryWarning() {
+        super.didReceiveMemoryWarning()
+    }
+
+    func strNowTime() -> String{
+        let date0 = NSDate()
+        let timeFormatter = NSDateFormatter()
+        timeFormatter.dateFormat = "YYYY-MM-dd HH:mm:ss"
+        let strNowTime = timeFormatter.stringFromDate(date0) as String
+        return strNowTime
+    }
+    
+    func playSystemSound(){
+        var soundID:SystemSoundID = 0
+        let path = NSBundle.mainBundle().pathForResource("Doorbell", ofType: "mp3")
+        let baseURL = NSURL(fileURLWithPath: path!)
+        AudioServicesCreateSystemSoundID(baseURL, &soundID)
+        AudioServicesPlayAlertSound(soundID)
+
+    }
+    
+    // MARK: - Table view data source
+    override func numberOfSectionsInTableView(tableView: UITableView) -> Int {
+        return 1
+    }
+
+    override func tableView(tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        //return staffNames.count
+        return 3
+    }
+    
+    override func tableView(tableView: UITableView, cellForRowAtIndexPath indexPath: NSIndexPath) -> UITableViewCell {
+//        let cell = tableView.dequeueReusableCellWithIdentifier("Cell1", forIndexPath: indexPath)
+//        let staffNameLabel = cell.viewWithTag(1000) as! UILabel
+//        let staffIDLabel = cell.viewWithTag(1001) as! UILabel
+//        let dateTimeLabel = cell.viewWithTag(1002) as! UILabel
+//        let imageView = cell.viewWithTag(1003) as! UIImageView
+//        staffNameLabel.text = staffNames[indexPath.row]
+//        staffIDLabel.text = staffIds[indexPath.row]
+//        dateTimeLabel.text = dateTimes[indexPath.row]
+//        if maleOrFemale(staffIds[indexPath.row]) == "男"{
+//            imageView.image = UIImage(named: "user62")
+//        }else if maleOrFemale(staffIds[indexPath.row]) == "女"{
+//            imageView.image = UIImage(named: "user63")
+//        }else{
+//            imageView.image = nil
+//        }
+//        return cell
+        
+        let cell = tableView.dequeueReusableCellWithIdentifier("historyCell")
+        let fenceNameLabel = cell?.viewWithTag(1000) as! UILabel
+        let outTimeLabel = cell?.viewWithTag(1001) as! UILabel
+        let backTimeLabel = cell?.viewWithTag(1002) as! UILabel
+        switch indexPath.row{
+        case 0:
+            fenceNameLabel.text = "象山石浦停泊港 - "
+            outTimeLabel.text = "2015.12.19 06:28"
+            backTimeLabel.text = "-"
+        case 1:
+            fenceNameLabel.text = "舟山临城停泊港 - 象山石浦停泊港"
+            outTimeLabel.text = "2015.12.14 07:51"
+            backTimeLabel.text = "2015.12.14 18:17"
+        case 2:
+            fenceNameLabel.text = "宁波停泊港 - 舟山临城停泊港"
+            outTimeLabel.text = "2015.12.11 09:13"
+            backTimeLabel.text = "2015.12.11 15:30"
+        default:
+            break
+        }
+        return cell!
+    }
+    
+    override func tableView(tableView: UITableView, heightForRowAtIndexPath indexPath: NSIndexPath) -> CGFloat {
+        return 88
+    }
+    
+    override func tableView(tableView: UITableView, didSelectRowAtIndexPath indexPath: NSIndexPath) {
+        tableView.deselectRowAtIndexPath(indexPath, animated: true)
+//        performSegueWithIdentifier("ShowDetail", sender: indexPath)
+        performSegueWithIdentifier("outDetailSegue", sender: indexPath) 
+    }
+    
+    // MARK: - Navigation
+    override func prepareForSegue(segue: UIStoryboardSegue, sender: AnyObject?) {
+        if segue.identifier == "ShowDetail"{
+            let detailViewController = segue.destinationViewController as! DetailViewController
+            let indexPath = sender as! NSIndexPath
+            var staffName = staffNames[indexPath.row]
+            staffName = staffName.stringByReplacingOccurrencesOfString(" ", withString: "")
+            detailViewController.staffName = staffName
+            detailViewController.gender = maleOrFemale(staffIds[indexPath.row])
+           
+            if staffIds[indexPath.row].characters.count == 18{
+                detailViewController.birthday = (staffIds[indexPath.row] as NSString).substringWithRange(NSMakeRange(6, 4)) + "/" + (staffIds[indexPath.row] as NSString).substringWithRange(NSMakeRange(10, 2)) + "/" + (staffIds[indexPath.row] as NSString).substringWithRange(NSMakeRange(12, 2))
+            }else{
+                detailViewController.birthday = "0000/00/00"
+            }
+            detailViewController.checkInDate = dateTimes[indexPath.row]
+        }
+    }
+    
+    func maleOrFemale(staffID: String) -> String{
+        if staffID.characters.count == 18{
+            let genderString = (staffID as NSString).substringWithRange(NSMakeRange(16, 1))
+            let genderNumber = Int(genderString)
+            if let genderNumber = genderNumber {
+                if genderNumber % 2 == 0{
+                    return "女"
+                }else{
+                    return "男"
+                }
+            }else{
+                return "未知"
+            }
+        }else{
+            return "未知"
+        }
+    }
+
+}

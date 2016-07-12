@@ -1,0 +1,252 @@
+//
+//  showStaffViewController.swift
+//  huilvchaxun
+//
+//  Created by qiuhong on 11/27/15.
+//  Copyright © 2015 qiuhhong. All rights reserved.
+//
+
+import UIKit
+import Alamofire
+import SwiftyJSON
+import AudioToolbox
+import MJRefresh
+
+class showStaffViewController: UITableViewController {
+    
+    var httpBody = "http://121.40.212.195:8080/PJWorkNum/staff/getStaffHistorybyDeviceNo.do?u=admin&p=xMpCOKC5I4INzFCab3WEmw==&deviceNo="
+    var deviceNo: String?
+    var savedDeviceNo: String?
+    var staffIds2 = [""]
+    var staffNames2 = [""]
+    var dateTimes2 = [""]
+    var refreshTime2: String?
+    var refreshTimer: NSTimer?
+    
+    @IBOutlet weak var viewTitle: UINavigationItem!
+    
+    @IBAction func okBarButtonTapped(sender: AnyObject) {
+        let okHandler = {(action: UIAlertAction!) -> Void in
+            alertView("提示", message: "已成功提交出海名单！", okActionTitle: "好的", okHandler: nil, viewController: self)
+        }
+        
+        alertView("确认提交名单？", message: "xxx:330283198812340134\nxxx:330283198812340134\nxxx:330283198812340134\nxxx:330283198812340134\nxxx:330283198812340134\nxxx:330283198812340134\nxxx:330283198812340134\n\n共7人", okActionTitle: "提交", cancleActionTitle: "取消", okHandler: okHandler, viewController: self)
+    }
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        
+        if let number = NSUserDefaults.standardUserDefaults().objectForKey("deviceNo"){
+            deviceNo = number as? String
+        }else{
+            alertView("提示", message: "终端号获取错误!", okActionTitle: "好的", okHandler: nil, viewController: self)
+        }
+        tableView.tableFooterView = UIView()
+        
+        httpBody += deviceNo!
+        
+        //MJ refresh
+        tableView.mj_header = MJRefreshNormalHeader(refreshingTarget: self, refreshingAction: "refreshData")
+        tableView.mj_header.beginRefreshing()
+        
+        loadData()
+    }
+    
+    func refreshData(){
+        
+        Alamofire.request(.GET, httpBody).responseData{
+            response in
+            
+            switch response.result{
+            case .Success:
+                if let value = response.result.value{
+                    let str = NSString(data: value, encoding: NSUTF8StringEncoding)
+                    var valueShuangyinhao = str!.stringByReplacingOccurrencesOfString("'", withString: "\"")
+                    var nsDatajson = valueShuangyinhao.dataUsingEncoding(NSUTF8StringEncoding)
+                    var json = JSON(data: nsDatajson!)
+                    if json.count == 0{
+                        valueShuangyinhao = valueShuangyinhao + "    \"" + "}]"
+                        nsDatajson = valueShuangyinhao.dataUsingEncoding(NSUTF8StringEncoding)
+                        json = JSON(data: nsDatajson!)
+                    }
+                    let num = json.count
+                    self.staffIds2.removeAll()
+                    self.staffNames2.removeAll()
+                    self.dateTimes2.removeAll()
+                    var i = 0
+                    while i < num{
+                        let staffId = json[i]["staffId"].stringValue
+                        let staffName = json[i]["staffName"].stringValue
+                        let dateTime = json[i]["dateTime"].stringValue
+                        i++
+                        self.staffIds2.append(staffId)
+                        self.staffNames2.append(staffName)
+                        self.dateTimes2.append(dateTime)
+                    }
+                    
+                    //重载tableView
+                    self.tableView.reloadData()
+                    
+                    //保存数据
+                    self.saveData()
+                    
+                    //下拉刷新
+                    self.tableView.mj_header.endRefreshing()
+                }
+                
+            case .Failure:
+                self.tableView.mj_header.endRefreshing()
+                alertView("提示", message: "通信故障，无法获取数据!", okActionTitle: "好的", okHandler: nil, viewController: self)
+            }
+        }
+    }
+    
+    func saveData(){
+        let defaults = NSUserDefaults.standardUserDefaults()
+        defaults.setObject(self.staffIds2, forKey: "staffIds2")
+        defaults.setObject(self.staffNames2, forKey: "staffNames2")
+        defaults.setObject(self.dateTimes2, forKey: "dateTimes2")
+        defaults.setObject(self.strNowTime(), forKey: "refreshTime2")
+        defaults.setObject(self.deviceNo, forKey: "deviceNoForStaff2")
+    }
+    
+    func loadData(){
+        let defaults = NSUserDefaults.standardUserDefaults()
+        if let defaultsDeviceNo = defaults.objectForKey("deviceNoForStaff2"){
+            savedDeviceNo = defaultsDeviceNo as? String
+            
+            //判断存的船员 是否是目前终端的
+            if let deviceNo = deviceNo{
+                if savedDeviceNo != deviceNo{
+                    staffIds2 = [""]
+                    staffNames2 = [""]
+                    dateTimes2 = [""]
+                }else{
+                    if let names = defaults.objectForKey("staffNames2"){
+                        staffNames2 = names as! [String]
+                    }
+                    if let IDs = defaults.objectForKey("staffIds2"){
+                        staffIds2 = IDs as! [String]
+                    }
+                    if let times = defaults.objectForKey("dateTimes2"){
+                        dateTimes2 = times as! [String]
+                    }
+                    if let time = defaults.objectForKey("refreshTime2"){
+                        refreshTime2 = time as? String
+                    }
+                    
+                    //不确定读取的数据是否会出错，做个判断
+                    let count = staffNames2.count
+                    if staffIds2.count != count || dateTimes2.count != count{
+                        staffIds2 = [""]
+                        staffNames2 = [""]
+                        dateTimes2 = [""]
+                    }
+                }
+            }
+        }
+    }
+    
+    override func didReceiveMemoryWarning() {
+        super.didReceiveMemoryWarning()
+    }
+    
+    func strNowTime() -> String{
+        let date0 = NSDate()
+        let timeFormatter = NSDateFormatter()
+        timeFormatter.dateFormat = "YYYY-MM-dd HH:mm:ss"
+        let strNowTime = timeFormatter.stringFromDate(date0) as String
+        return strNowTime
+    }
+    
+    // MARK: - Table view data source
+    override func numberOfSectionsInTableView(tableView: UITableView) -> Int {
+        return 1
+    }
+    
+    override func tableView(tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        return staffNames2.count
+    }
+    
+    override func tableView(tableView: UITableView, cellForRowAtIndexPath indexPath: NSIndexPath) -> UITableViewCell {
+        let cell = tableView.dequeueReusableCellWithIdentifier("Cell1", forIndexPath: indexPath)
+        let staffNameLabel = cell.viewWithTag(1000) as! UILabel
+        let staffIDLabel = cell.viewWithTag(1001) as! UILabel
+        let dateTimeLabel = cell.viewWithTag(1002) as! UILabel
+        let imageView = cell.viewWithTag(1003) as! UIImageView
+        staffNameLabel.text = staffNames2[indexPath.row]
+        staffIDLabel.text = staffIds2[indexPath.row]
+        dateTimeLabel.text = dateTimes2[indexPath.row]
+        if maleOrFemale(staffIds2[indexPath.row]) == "男"{
+            imageView.image = UIImage(named: "user62")
+        }else if maleOrFemale(staffIds2[indexPath.row]) == "女"{
+            imageView.image = UIImage(named: "user63")
+        }else{
+            imageView.image = nil
+        }
+        return cell
+    }
+    
+    override func tableView(tableView: UITableView, heightForRowAtIndexPath indexPath: NSIndexPath) -> CGFloat {
+        return 60
+    }
+    
+    override func tableView(tableView: UITableView, didSelectRowAtIndexPath indexPath: NSIndexPath) {
+        tableView.deselectRowAtIndexPath(indexPath, animated: true)
+        performSegueWithIdentifier("ShowDetail", sender: indexPath)
+    }
+    
+    override func tableView(tableView: UITableView, commitEditingStyle editingStyle: UITableViewCellEditingStyle, forRowAtIndexPath indexPath: NSIndexPath) {
+        //
+    }
+    
+    // MARK: - Navigation
+    override func prepareForSegue(segue: UIStoryboardSegue, sender: AnyObject?) {
+        if segue.identifier == "ShowDetail"{
+            let detailViewController = segue.destinationViewController as! DetailViewController
+            let indexPath = sender as! NSIndexPath
+            var staffName = staffNames2[indexPath.row]
+            staffName = staffName.stringByReplacingOccurrencesOfString(" ", withString: "")
+            detailViewController.staffName = staffName
+            
+            let genderString = (staffIds2[indexPath.row] as NSString).substringWithRange(NSMakeRange(16, 1))
+            let genderNumber = Int(genderString)
+            if let genderNumber = genderNumber {
+                if genderNumber % 2 == 0{
+                    detailViewController.gender = "女"
+                }else{
+                    detailViewController.gender = "男"
+                }
+            }else{
+                detailViewController.gender = "未知"
+            }
+            
+            if staffIds2[indexPath.row].characters.count == 18{
+                detailViewController.birthday = (staffIds2[indexPath.row] as NSString).substringWithRange(NSMakeRange(6, 4)) + "/" + (staffIds2[indexPath.row] as NSString).substringWithRange(NSMakeRange(10, 2)) + "/" + (staffIds2[indexPath.row] as NSString).substringWithRange(NSMakeRange(12, 2))
+            }else{
+                detailViewController.birthday = "0000/00/00"
+            }
+            
+            detailViewController.checkInDate = dateTimes2[indexPath.row]
+        }
+    }
+    
+    func maleOrFemale(staffID: String) -> String{
+        if staffID.characters.count == 18{
+            let genderString = (staffID as NSString).substringWithRange(NSMakeRange(16, 1))
+            let genderNumber = Int(genderString)
+            if let genderNumber = genderNumber {
+                if genderNumber % 2 == 0{
+                    return "女"
+                }else{
+                    return "男"
+                }
+            }else{
+                return "未知"
+            }
+        }else{
+            return "未知"
+        }
+    }
+    
+}

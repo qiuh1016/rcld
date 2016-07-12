@@ -1,0 +1,145 @@
+//
+//  reasonViewController.swift
+//  renchuanliandong
+//
+//  Created by 裘鸿 on 1/15/16.
+//  Copyright © 2016 qiuhhong. All rights reserved.
+//
+
+import UIKit
+
+protocol reasonViewControllerDelegate: NSObjectProtocol{
+    func punchHasConfirmAdded (punchAdded: Punch, viewController: UIViewController)
+}
+
+class reasonViewController: UIViewController {
+
+    @IBOutlet weak var reasonButton_1: UIButton!
+    @IBOutlet weak var reasonButton_2: UIButton!
+    @IBOutlet weak var reasonButton_3: UIButton!
+    @IBOutlet weak var reasonButton_4: UIButton!
+    
+    @IBOutlet weak var nameTextField: UITextField!
+    @IBOutlet weak var idTextField: UITextField!
+    @IBOutlet weak var reasonTextField: UITextField!
+    
+    @IBOutlet weak var contentViw: UIView!
+    
+    @IBOutlet weak var contentViewToTopConstraint: NSLayoutConstraint!
+    
+    var delegate: reasonViewControllerDelegate?
+    
+    var punchAdded = Punch()
+    var punchs = [Punch]()
+    
+    @IBAction func upLoadButtonTapped() {
+        let sailorName = nameTextField.text!
+        let sailorIdNo = idTextField.text!
+        let reason     = reasonTextField.text!
+        
+        if sailorName != "" && sailorIdNo != "" && reason != "" {
+            
+            if !verifyIDCardNumber(sailorIdNo) {
+                alertView("错误", message: "身份证号码填写错误", okActionTitle: "好的", okHandler: nil, viewController: self)
+                
+            } else {
+                punchAdded.sailorName = sailorName
+                punchAdded.sailorIdNo = sailorIdNo
+                punchAdded.dataType = 1
+                punchAdded.reason = reason
+                
+                for punch in punchs {
+                    if punchAdded.sailorIdNo == punch.sailorIdNo {
+                        alertView("错误", message: "该位船员已在名单中", okActionTitle: "好的", okHandler: nil, viewController: self)
+                        return
+                    }
+                }
+                
+                let okHandler = { (action: UIAlertAction!) -> Void in
+                    self.delegate?.punchHasConfirmAdded(self.punchAdded, viewController: self)
+                }
+                alertView("确认提交？", message: "姓名：\(sailorName)\n身份证：\(sailorIdNo)\n修改原因：\(reason)", okActionTitle: "提交", cancleActionTitle: "取消", okHandler: okHandler, viewController: self)
+                
+            }
+            
+        } else {
+            alertView("错误", message: "请填写完整!", okActionTitle: "好的", okHandler: nil, viewController: self)
+        }
+        
+    }
+    
+    
+    override func viewDidLoad() {
+        
+        let reasonButtonArray = [reasonButton_1, reasonButton_2, reasonButton_3, reasonButton_4]
+        for button in reasonButtonArray{
+            button.layer.cornerRadius = button.bounds.size.height / 4
+            button.layer.masksToBounds = true
+            button.addTarget(self, action: #selector(reasonViewController.addReason(_:)), forControlEvents: .TouchUpInside)
+        }
+        
+        nameTextField.delegate = self
+        idTextField.delegate = self
+        reasonTextField.delegate = self
+        
+        contentViewToTopConstraint.constant = (screenH - 64 - contentViw.frame.size.height) / 2 - 32
+        self.view.layoutIfNeeded();
+        
+        let tap = UITapGestureRecognizer(target: self, action: #selector(reasonViewController.closeKeyboard))
+        self.view.addGestureRecognizer(tap)
+        
+        NSNotificationCenter.defaultCenter().addObserver(self, selector: #selector(reasonViewController.keyboardWillAppear(_:)), name: UIKeyboardWillShowNotification, object: nil)
+        NSNotificationCenter.defaultCenter().addObserver(self, selector: #selector(reasonViewController.keyboardWillHide(_:)), name: UIKeyboardWillHideNotification, object: nil)
+        
+    }
+    
+    override func viewDidAppear(animated: Bool) {
+        super.viewWillAppear(animated)
+    }
+    
+    func addReason(button: UIButton) {
+        reasonTextField.text = button.titleForState(.Normal)
+    }
+    
+    func closeKeyboard(){
+        nameTextField.resignFirstResponder()
+        idTextField.resignFirstResponder()
+        reasonTextField.resignFirstResponder()
+    }
+    
+    func keyboardWillAppear(notification: NSNotification){
+        let originalContraint = (screenH - 64 - contentViw.frame.size.height) / 2 - 32
+        
+        if originalContraint > 5 {
+            contentViewToTopConstraint.constant = 5
+            UIView.animateWithDuration(0.5, delay: 0.0, options: .CurveEaseOut, animations: {
+                self.view.layoutIfNeeded()
+                }, completion: nil)
+        }
+        
+    }
+    
+    func keyboardWillHide(notification: NSNotification){
+        let originalContraint = (screenH - 64 - contentViw.frame.size.height) / 2 - 32
+        contentViewToTopConstraint.constant = originalContraint
+        UIView.animateWithDuration(0.5, delay: 0.0, options: .CurveEaseOut, animations: {
+            self.view.layoutIfNeeded()
+            }, completion: nil)
+    }
+
+    
+}
+
+extension reasonViewController: UITextFieldDelegate {
+    func textFieldShouldReturn(textField: UITextField) -> Bool {
+        if textField == nameTextField {
+            idTextField.becomeFirstResponder()
+        } else if textField == idTextField {
+            reasonTextField.becomeFirstResponder()
+        } else if textField ==  reasonTextField {
+            
+            upLoadButtonTapped()
+        }
+        return true
+    }
+}

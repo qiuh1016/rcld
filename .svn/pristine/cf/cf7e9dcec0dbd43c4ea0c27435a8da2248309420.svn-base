@@ -1,0 +1,17 @@
+//
+//  Fence.swift
+//  huilvchaxun
+//
+//  Created by qiuhong on 11/24/15.
+//  Copyright © 2015 qiuhhong. All rights reserved.
+//
+
+import Foundation
+import CoreData
+
+class Fence: NSObject {
+    var fenceName: String = ""
+    var fenceType: String = ""
+    var inShips: Int = 0
+    var fenceId: String = ""
+}

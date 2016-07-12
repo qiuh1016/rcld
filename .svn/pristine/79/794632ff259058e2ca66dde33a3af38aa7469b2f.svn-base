@@ -1,0 +1,339 @@
+//
+//  ViewController.swift
+//  huilvchaxun
+//
+//  Created by qiuh1016 on 11/16/15.
+//  Copyright © 2015 qiuhhong. All rights reserved.
+//
+
+import UIKit
+import Alamofire
+import SwiftyJSON
+
+class LoginViewController: UIViewController{
+    
+
+    @IBOutlet weak var shipNumberTextField: UITextField!
+    @IBOutlet weak var passwordTextField: UITextField!
+    @IBOutlet weak var headingLabel: UILabel!
+    @IBOutlet weak var contentView: UIView!
+    @IBOutlet weak var accountMenuButton: UIButton!
+    @IBOutlet weak var headingLabelToTopConstraint: NSLayoutConstraint!
+    @IBOutlet weak var contentViewToYConstraint: NSLayoutConstraint!
+    
+    //保存3个登录过的帐户
+    var accounts = ["", "", ""]
+    var contentViewWillCoverHeading = false
+    var benchuan = ""
+    let httpBody = "http://121.40.212.195:8080/PJWorkNum/device/getDeviceRealTime.do?u=admin&p=xMpCOKC5I4INzFCab3WEmw=="
+    var keyboardHeight: CGFloat!
+    var headingLabelToTopConstraintConstant: CGFloat!
+    var shipNum: String = {
+        if let shipNum = NSUserDefaults.standardUserDefaults().valueForKey("shipNumber"){
+            return shipNum as! String
+        }
+        return ""
+    }()
+    
+    @IBAction func accountMenuButtonTapped() {
+        
+        //如果没有历史，则返回
+        if accounts[0].isEmpty && accounts[1].isEmpty && accounts[2].isEmpty{
+            return
+        }
+        
+        let accountMenu = UIAlertController(title: "请选择账户", message: "", preferredStyle: UIAlertControllerStyle.ActionSheet)
+        
+        //将最新的帐户显示在最上面
+        let account0Action = UIAlertAction(title: accounts[0], style: .Default, handler: {(action:UIAlertAction!) -> Void in
+            self.shipNumberTextField.text = "\(self.accounts[0])"
+        })
+        let account1Action = UIAlertAction(title: accounts[1], style: .Default, handler: {(action:UIAlertAction!) -> Void in
+            self.shipNumberTextField.text = "\(self.accounts[1])"
+        })
+        let account2Action = UIAlertAction(title: accounts[2], style: .Default, handler: {(action:UIAlertAction!) -> Void in
+            self.shipNumberTextField.text = "\(self.accounts[2])"
+        })
+        
+        if accounts[2] != ""{
+            accountMenu.addAction(account2Action)
+        }
+        if accounts[1] != ""{
+            accountMenu.addAction(account1Action)
+        }
+        if accounts[0] != ""{
+            accountMenu.addAction(account0Action)
+        }
+        
+        //清空按钮
+        let clearAction = UIAlertAction(title: "清空历史", style: UIAlertActionStyle.Destructive, handler: {(action:UIAlertAction!) -> Void in
+            let defaults = NSUserDefaults.standardUserDefaults()
+            self.accounts = ["", "", ""]
+            self.shipNumberTextField.text = ""
+            self.passwordTextField.text = ""
+            defaults.setObject(self.accounts, forKey: "accounts")
+            self.accountMenuButton.hidden = true
+            
+        })
+        accountMenu.addAction(clearAction)
+        
+        //取消按钮
+        let cancleAction = UIAlertAction(title: "取消", style: UIAlertActionStyle.Cancel, handler: nil)
+        accountMenu.addAction(cancleAction)
+        
+        self.presentViewController(accountMenu, animated: true, completion: nil)
+        
+    }
+    
+    @IBAction func editingDidBegin(sender: AnyObject) {
+        accountMenuButton.hidden = true
+    }
+    
+    @IBAction func editingDisEnd(sender: AnyObject) {
+        if !accounts[0].isEmpty || !accounts[1].isEmpty || !accounts[2].isEmpty{
+            accountMenuButton.hidden = false
+        }
+    }
+    
+    @IBAction func loginTapped() {
+        closeKeyboard()
+        
+        if shipNumberTextField.text == "" || passwordTextField.text == "" {
+            //SweetAlert().showAlert("船号或密码不能为空!", subTitle: "", style: AlertStyle.Error, buttonTitle: "    OK    ")
+            alertView("提示", message: "船号或密码不能为空!", okActionTitle: "好的", okHandler: nil, viewController: self)
+            
+        }else{
+            login(shipNumberTextField.text!, password: passwordTextField.text!)
+        }
+        
+    }
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+                
+        let defaults = NSUserDefaults.standardUserDefaults()
+        if let defaultsAccounts = defaults.objectForKey("accounts"){
+            accounts = defaultsAccounts as! [String]
+        }
+        
+        let screenHeight = self.view.bounds.size.height
+        let contentViewHeight = self.contentView.bounds.size.height
+        
+        headingLabelToTopConstraintConstant = ((screenHeight / 2 - contentViewHeight / 2) / 2 - headingLabel.frame.height / 2) * 1.2
+        headingLabelToTopConstraint.constant = headingLabelToTopConstraintConstant
+        self.view.layoutIfNeeded()
+        
+        shipNumberTextField.delegate = self
+        passwordTextField.delegate = self
+        
+        let tap = UITapGestureRecognizer(target: self, action: "closeKeyboard")
+        self.view.addGestureRecognizer(tap)
+        
+        NSNotificationCenter.defaultCenter().addObserver(self, selector: "keyboardWillAppear:", name: UIKeyboardWillShowNotification, object: nil)
+        NSNotificationCenter.defaultCenter().addObserver(self, selector: "keyboardWillHide:", name: UIKeyboardWillHideNotification, object: nil)
+        
+    }
+    
+    override func viewWillAppear(animated: Bool) {
+        super.viewWillAppear(animated)
+        
+        self.headingLabel.alpha = 1
+        
+        shipNumberTextField.text = accounts.last
+        
+        //清空密码textfield
+        passwordTextField.text = ""
+        
+        if accounts[0].isEmpty && accounts[1].isEmpty && accounts[2].isEmpty{
+            accountMenuButton.hidden = true
+        }else{
+            accountMenuButton.hidden = false
+        }
+        
+    }
+    
+    override func didReceiveMemoryWarning() {
+        super.didReceiveMemoryWarning()
+        // Dispose of any resources that can be recreated.
+    }
+    
+    func login(shipNumber: String , password: String){
+        
+        
+        let hudView = HudView.hudInView(self.view, animated: false)
+        hudView.text = "登录中"
+        
+        benchuan = shipNumber
+        
+        Alamofire.request(.GET, httpBody).validate().responseData{
+            response in
+            
+            switch response.result{
+            case .Success:
+                if let value = response.result.value{
+                    //先把获取到的Data用UTF8解码为string，然后把单引号换成双引号，在用UTF8编码
+                    let str = NSString(data: value, encoding: NSUTF8StringEncoding)
+                    let valueShuangyinhao = str!.stringByReplacingOccurrencesOfString("'", withString: "\"") as NSString
+                    let nsDatajson = valueShuangyinhao.dataUsingEncoding(NSUTF8StringEncoding)
+                    
+                    //将Data转换为JSON 用SwiftyJSON库
+                    let json = JSON(data: nsDatajson!)
+                    let num = json.count
+                    var i = 0
+                    var chuanxuhao:Int?
+                    while(i < num){
+                        
+                        if json[i]["shipNumber"].stringValue == self.benchuan{
+                            if json[i]["shipNumber"].stringValue == "412999911" {
+                                if json[i]["deviceNo"].stringValue == "10000001"{
+                                    chuanxuhao = i
+                                }
+                            }else{
+                                chuanxuhao = i
+                            }
+                        }
+                        i++
+                    }
+                    
+                    //如果船序号获取到了
+                    if let chuanxuhao = chuanxuhao{
+                        //如果密码错误
+                        if password != "admin"{
+                            hudView.hideAnimated(self.view, animated: false)
+                            alertView("提示", message: "用户名或密码错误!", okActionTitle: "好的", okHandler: nil, viewController: self)
+                            //密码错误则把密码textfield置空
+                            self.passwordTextField.text = ""
+                            return
+                        }
+                        
+                        //以下为登陆成功的操作
+                        //保存本船信息
+                        let defaults = NSUserDefaults.standardUserDefaults()
+                        
+                        let shipNumber = json[chuanxuhao]["shipNumber"].stringValue
+                        
+                        defaults.setObject(json[chuanxuhao]["shipName"].stringValue, forKey: "shipName")
+                        defaults.setObject(shipNumber, forKey: "shipNumber")
+                        defaults.setObject(json[chuanxuhao]["ownerName"].stringValue, forKey: "ownerName")
+                        defaults.setObject(json[chuanxuhao]["telphone"].stringValue, forKey:"telphone")
+                        defaults.setObject(json[chuanxuhao]["deviceNo"].stringValue, forKey: "deviceNo")
+                        defaults.setObject(json[chuanxuhao]["isOvertime"].stringValue, forKey: "isOvertime")
+                        defaults.setDouble(json[chuanxuhao]["latitude"].doubleValue, forKey: "latitude")
+                        defaults.setDouble(json[chuanxuhao]["longitude"].doubleValue, forKey: "longitude")
+                        
+                        //保存至历史帐户
+                        if shipNumber != self.accounts[0] && shipNumber != self.accounts[1] && shipNumber != self.accounts[2]{
+                            self.accounts.removeFirst()
+                            self.accounts.append(shipNumber)
+                        }else if shipNumber == self.accounts[1]{
+                            self.accounts[1] = self.accounts[2]
+                            self.accounts[2] = shipNumber
+                            print("account 2 and 1 changed position")
+                        }else if shipNumber == self.accounts[0]{
+                            self.accounts[0] = self.accounts[1]
+                            self.accounts[1] = self.accounts[2]
+                            self.accounts[2] = shipNumber
+                            print("account 2/1/0 changed position")
+                        }
+                        defaults.setObject(self.accounts, forKey: "accounts")
+                        
+                        //去掉 原本的HudView 换成OKView 目前不知道有什么方法能动画转换HudView中的对象
+                        hudView.hideAnimated(self.view, animated: false)
+                        
+                        let okView = OKView.hudInView(self.view, animated: false)
+                        okView.text = "登录成功"
+                        afterDelay(1.0){
+                            okView.hideAnimated(self.view, animated: false)
+                            NSUserDefaults.standardUserDefaults().setBool(true, forKey: "hasLogin")
+                            NSUserDefaults.standardUserDefaults().setBool(true, forKey: "gestureHasLogin")
+                            self.dismissViewControllerAnimated(true, completion: nil)
+                        }
+                        
+                    }else{
+                        //船序号不在列表中
+                        hudView.hideAnimated(self.view, animated: false)
+                        alertView("提示", message: "用户名或密码错误!", okActionTitle: "好的", okHandler: nil, viewController: self)
+                    }
+                    
+                }
+            case .Failure:
+                hudView.hideAnimated(self.view, animated: false)
+                alertView("提示", message: "通信故障，无法获取数据!", okActionTitle: "好的", okHandler: nil, viewController: self)
+            }
+        }
+    }
+    
+    func closeKeyboard(){
+        shipNumberTextField.resignFirstResponder()
+        passwordTextField.resignFirstResponder()
+    }
+
+    func keyboardWillAppear(notification: NSNotification){
+        let keyboardInfo = notification.userInfo![UIKeyboardFrameBeginUserInfoKey]
+        keyboardHeight = keyboardInfo?.CGRectValue.size.height
+        let screenHeight = self.view.bounds.size.height
+        let contentViewHeight = self.contentView.frame.height
+        
+        if keyboardHeight + contentViewHeight >= screenHeight / 2{
+            let remainPoint = screenHeight / 2 - keyboardHeight
+            var movePonit = contentViewHeight / 2 - remainPoint + 20
+            
+            if contentViewHeight / 2 + movePonit + 20 > screenHeight / 2{
+                movePonit = screenHeight / 2 - contentViewHeight / 2 - 20
+            }
+            
+            contentViewToYConstraint.constant = -movePonit
+            headingLabelToTopConstraint.constant = headingLabelToTopConstraintConstant - 30
+            
+            if screenHeight / 2 - movePonit - contentViewHeight / 2 < headingLabelToTopConstraintConstant + headingLabel.frame.height{
+                contentViewWillCoverHeading = true
+            }
+            
+            UIView.animateWithDuration(0.5, delay: 0.0, options: .CurveEaseOut, animations: {
+                self.view.layoutIfNeeded()
+                if self.contentViewWillCoverHeading{
+                    self.headingLabel.alpha = 0
+                }
+            }, completion: nil)
+        }
+        
+    }
+    
+    func keyboardWillHide(notification: NSNotification){
+        
+        contentViewToYConstraint.constant = 0
+        headingLabelToTopConstraint.constant = headingLabelToTopConstraintConstant
+    
+        UIView.animateWithDuration(0.5, delay: 0.0, options: .CurveEaseOut, animations: {
+            self.view.layoutIfNeeded()
+            if self.contentViewWillCoverHeading{
+                self.headingLabel.alpha = 1
+                self.contentViewWillCoverHeading = false
+            }
+        }, completion: nil)
+    }
+    
+    override func prepareForSegue(segue: UIStoryboardSegue, sender: AnyObject?) {
+        if segue.identifier == "loginToUnlockSegue"{
+            let viewController = segue.destinationViewController as! unlockViewController
+            viewController.newPSWMode = false
+        }
+    }
+    
+}
+
+extension LoginViewController: UITextFieldDelegate{
+    
+    func textFieldShouldReturn(textField: UITextField) -> Bool{
+        if textField == shipNumberTextField{
+            passwordTextField.becomeFirstResponder()
+        }else if textField == passwordTextField{
+            if shipNumberTextField.text != "" && passwordTextField.text != ""{
+                passwordTextField.resignFirstResponder()
+                loginTapped()
+            }
+        }
+        return true
+    }
+    
+}

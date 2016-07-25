@@ -123,8 +123,15 @@ class fencesViewController: UITableViewController {
         
         let userName = NSUserDefaults.standardUserDefaults().valueForKey("userName")
         let password = NSUserDefaults.standardUserDefaults().valueForKey("password")
+        let shipNo   = NSUserDefaults.standardUserDefaults().valueForKey("shipNo")
         
-        Alamofire.request(.GET, httpBodyURL + httpGetFenceInfoURL, parameters: ["userName": userName!, "password": password!]).responseData{
+        var serverIP = NSUserDefaults.standardUserDefaults().stringForKey("serverIP")
+        if serverIP == nil {
+            serverIP = defaultServerIP_1
+        }
+        let url = "http://" + serverIP! + shipGetUrl
+        
+        Alamofire.request(.GET, url, parameters: ["userName": userName!, "password": password!, "shipNo": shipNo!]).responseData{
             response in
             
             switch response.result{
